@@ -1,4 +1,3 @@
-
 jQuery(document).ready(function($) {
     'use strict';
     
@@ -48,7 +47,7 @@ jQuery(document).ready(function($) {
     // Function to create verification box from template
     function createVerificationBox() {
         if (verificationBoxCreated) {
-            return $('#cod-verifier-wrapper');
+            return $('#cod-verifier-wrapper-active');
         }
         
         const $template = $('#cod-verification-template #cod-verifier-wrapper');
@@ -61,15 +60,15 @@ jQuery(document).ready(function($) {
         const $clonedBox = $template.clone();
         $clonedBox.attr('id', 'cod-verifier-wrapper-active');
         
-        // Find the best insertion point
+        // Find the best insertion point - ABOVE both Return to Cart and Place Order
         let $insertionPoint = null;
         
         if (isBlockCheckout) {
-            // For WooCommerce Blocks
+            // For WooCommerce Blocks - insert above place order button
             const blockSelectors = [
-                '.wc-block-checkout__payment',
                 '.wc-block-components-checkout-place-order-button',
                 '.wp-block-woocommerce-checkout-order-summary-block',
+                '.wc-block-checkout__payment',
                 '.wc-block-checkout'
             ];
             
@@ -81,7 +80,7 @@ jQuery(document).ready(function($) {
                 }
             }
         } else {
-            // For Classic WooCommerce
+            // For Classic WooCommerce - insert above order review section
             const classicSelectors = [
                 '#order_review',
                 '.woocommerce-checkout-review-order',
@@ -180,21 +179,16 @@ jQuery(document).ready(function($) {
     }
     
     function updateHiddenFields() {
-        // Update hidden form fields for server-side validation
-        let $otpField = $('input[name="cod_otp_verified"]');
-        let $tokenField = $('input[name="cod_token_verified"]');
+        // Remove existing hidden fields
+        $('input[name="cod_otp_verified"]').remove();
+        $('input[name="cod_token_verified"]').remove();
         
-        if ($otpField.length === 0) {
-            $('form.checkout, form.wc-block-checkout__form, body').append('<input type="hidden" name="cod_otp_verified" value="0">');
-            $otpField = $('input[name="cod_otp_verified"]');
+        // Add updated hidden fields to the checkout form
+        const $checkoutForm = $('form.checkout, form.wc-block-checkout__form').first();
+        if ($checkoutForm.length > 0) {
+            $checkoutForm.append('<input type="hidden" name="cod_otp_verified" value="' + (otpVerified ? '1' : '0') + '">');
+            $checkoutForm.append('<input type="hidden" name="cod_token_verified" value="' + (tokenPaid ? '1' : '0') + '">');
         }
-        if ($tokenField.length === 0) {
-            $('form.checkout, form.wc-block-checkout__form, body').append('<input type="hidden" name="cod_token_verified" value="0">');
-            $tokenField = $('input[name="cod_token_verified"]');
-        }
-        
-        $otpField.val(otpVerified ? '1' : '0');
-        $tokenField.val(tokenPaid ? '1' : '0');
         
         console.log('COD Verifier: Hidden fields updated - OTP:', otpVerified, 'Token:', tokenPaid);
     }

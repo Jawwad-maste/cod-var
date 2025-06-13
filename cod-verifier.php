@@ -1,4 +1,3 @@
-
 <?php
 /*
 Plugin Name: COD Verifier for WooCommerce
@@ -73,16 +72,13 @@ class CODVerifier {
         // Enqueue scripts and styles
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         
-        // Add verification box to footer for WooCommerce Blocks compatibility
+        // Add verification box to footer for both classic and block checkout
         add_action('wp_footer', array($this, 'add_verification_box_to_footer'));
         
-        // CRITICAL: Multiple validation points with HIGHEST PRIORITY
-        add_action('woocommerce_checkout_process', array($this, 'validate_checkout'), 1);
+        // CRITICAL: Server-side validation with HIGHEST PRIORITY
         add_action('woocommerce_before_checkout_process', array($this, 'validate_checkout'), 1);
+        add_action('woocommerce_checkout_process', array($this, 'validate_checkout'), 1);
         add_filter('woocommerce_checkout_posted_data', array($this, 'validate_checkout_data'), 1);
-        
-        // Additional validation filters
-        add_filter('woocommerce_checkout_fields', array($this, 'add_hidden_validation_fields'), 999);
         
         // Clean up after order
         add_action('woocommerce_thankyou', array($this, 'cleanup_session'));
@@ -98,6 +94,7 @@ class CODVerifier {
         if (is_checkout()) {
             wp_enqueue_script('jquery');
             
+            // Use the working script.js instead of cod-verifier.js
             wp_enqueue_script(
                 'cod-verifier-script',
                 COD_VERIFIER_PLUGIN_URL . 'assets/script.js',
@@ -108,7 +105,7 @@ class CODVerifier {
             
             wp_enqueue_style(
                 'cod-verifier-style',
-                COD_VERIFIER_PLUGIN_URL . 'assets/style.css',
+                COD_VERIFIER_PLUGIN_URL . 'assets/cod-verifier.css',
                 array(),
                 COD_VERIFIER_VERSION
             );
@@ -133,25 +130,14 @@ class CODVerifier {
         $enable_token = get_option('cod_verifier_enable_token', '1');
         
         if ($enable_otp === '1' || $enable_token === '1') {
+            // Output hidden template wrapper that script.js expects
             echo '<div id="cod-verification-template" style="display: none;">';
+            
+            // Include the main verification box template
             include COD_VERIFIER_PLUGIN_PATH . 'templates/otp-box.php';
+            
             echo '</div>';
         }
-    }
-    
-    public function add_hidden_validation_fields($fields) {
-        // Add hidden fields for validation
-        $fields['billing']['cod_otp_verified'] = array(
-            'type' => 'hidden',
-            'default' => '0',
-            'class' => array('cod-validation-field')
-        );
-        $fields['billing']['cod_token_verified'] = array(
-            'type' => 'hidden',
-            'default' => '0',
-            'class' => array('cod-validation-field')
-        );
-        return $fields;
     }
     
     public function validate_checkout_data($data) {
@@ -185,20 +171,20 @@ class CODVerifier {
         
         // Validate OTP
         if ($enable_otp === '1') {
-            $otp_verified = isset($_SESSION['cod_otp_verified']) ? $_SESSION['cod_otp_verified'] : false;
+            $otp_verified_session = isset($_SESSION['cod_otp_verified']) ? $_SESSION['cod_otp_verified'] : false;
             $otp_verified_post = isset($_POST['cod_otp_verified']) ? sanitize_text_field($_POST['cod_otp_verified']) : '0';
             
-            if (!$otp_verified && $otp_verified_post !== '1') {
+            if (!$otp_verified_session && $otp_verified_post !== '1') {
                 $errors[] = __('Please verify your phone number with OTP before placing the order.', 'cod-verifier');
             }
         }
         
         // Validate Token
         if ($enable_token === '1') {
-            $token_paid = isset($_SESSION['cod_token_paid']) ? $_SESSION['cod_token_paid'] : false;
+            $token_paid_session = isset($_SESSION['cod_token_paid']) ? $_SESSION['cod_token_paid'] : false;
             $token_verified_post = isset($_POST['cod_token_verified']) ? sanitize_text_field($_POST['cod_token_verified']) : '0';
             
-            if (!$token_paid || $token_verified_post !== '1') {
+            if (!$token_paid_session && $token_verified_post !== '1') {
                 $errors[] = __('Please complete the ₹1 token payment before placing the order.', 'cod-verifier');
             }
         }
@@ -209,15 +195,17 @@ class CODVerifier {
                 wc_add_notice($error, 'error');
             }
             
-            // Stop processing immediately
-            wp_die(
-                implode('<br>', $errors),
-                'COD Verification Required',
-                array(
-                    'response' => 400,
-                    'back_link' => true
-                )
-            );
+            // Stop processing immediately for AJAX requests
+            if (wp_doing_ajax()) {
+                wp_send_json_error(array(
+                    'messages' => implode('<br>', $errors),
+                    'refresh' => false,
+                    'reload' => false
+                ));
+            }
+            
+            // For non-AJAX, throw exception to stop checkout
+            throw new Exception(implode(' ', $errors));
         }
     }
     
