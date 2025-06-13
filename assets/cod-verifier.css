@@ -1,0 +1,117 @@
+
+#cod-verifier-wrapper {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    margin: 20px 0;
+    font-family: Arial, sans-serif;
+}
+
+#cod-verifier-wrapper h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 18px;
+}
+
+#cod-verifier-wrapper h4 {
+    color: #555;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+#cod-verifier-wrapper .cod-verifier-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+#cod-verifier-wrapper .cod-verifier-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+#cod-verifier-wrapper input[type="tel"],
+#cod-verifier-wrapper input[type="text"] {
+    width: 250px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+#cod-verifier-wrapper button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+#cod-verifier-wrapper button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#cod-verifier-wrapper #cod_send_otp {
+    background: #0073aa;
+    color: white;
+}
+
+#cod-verifier-wrapper #cod_verify_otp {
+    background: #28a745;
+    color: white;
+}
+
+#cod-verifier-wrapper #cod_pay_token {
+    background: #ff6b35;
+    color: white;
+    padding: 10px 20px;
+    margin-bottom: 10px;
+}
+
+#cod-verifier-wrapper #cod_send_otp:hover,
+#cod-verifier-wrapper #cod_verify_otp:hover,
+#cod-verifier-wrapper #cod_pay_token:hover {
+    opacity: 0.9;
+}
+
+#cod_otp_message,
+#cod_token_message {
+    margin-top: 10px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+#cod-verifier-wrapper label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+#cod-verifier-wrapper input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+#cod-verifier-wrapper p {
+    margin-bottom: 10px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    #cod-verifier-wrapper input[type="tel"],
+    #cod-verifier-wrapper input[type="text"] {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    #cod-verifier-wrapper button {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 5px;
+    }
+}
