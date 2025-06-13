@@ -60,12 +60,13 @@ jQuery(document).ready(function($) {
         const $clonedBox = $template.clone();
         $clonedBox.attr('id', 'cod-verifier-wrapper-active');
         
-        // Find the best insertion point - ABOVE both Return to Cart and Place Order
+        // Find the best insertion point - BEFORE the actions container
         let $insertionPoint = null;
         
         if (isBlockCheckout) {
-            // For WooCommerce Blocks - insert above place order button
+            // For WooCommerce Blocks - insert BEFORE the actions row container
             const blockSelectors = [
+                '.wc-block-checkout__actions_row', // Insert BEFORE this flex container
                 '.wc-block-components-checkout-place-order-button',
                 '.wp-block-woocommerce-checkout-order-summary-block',
                 '.wc-block-checkout__payment',
@@ -98,9 +99,10 @@ jQuery(document).ready(function($) {
         }
         
         if ($insertionPoint && $insertionPoint.length > 0) {
+            // Insert BEFORE the container, not inside it
             $insertionPoint.before($clonedBox);
             verificationBoxCreated = true;
-            console.log('COD Verifier: Verification box created and inserted');
+            console.log('COD Verifier: Verification box created and inserted BEFORE:', $insertionPoint.attr('class'));
             return $clonedBox;
         } else {
             console.error('COD Verifier: No suitable insertion point found');

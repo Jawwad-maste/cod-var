@@ -11,6 +11,19 @@
     margin: 20px 0 !important;
     clear: both;
     display: block !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* CRITICAL: Ensure the verification box appears OUTSIDE and ABOVE the flex container */
+.wc-block-checkout__actions_row {
+    margin-top: 20px !important;
+    clear: both;
+}
+
+#cod-verifier-wrapper-active {
+    margin-bottom: 30px !important;
+    order: -1; /* Ensure it appears first if inside any flex container */
 }
 
 .cod-verifier-container {
@@ -331,17 +344,25 @@
     display: block;
 }
 
-/* Ensure proper placement above checkout buttons */
+/* CRITICAL: Ensure proper placement above checkout buttons */
 .woocommerce-checkout #cod-verifier-wrapper-active,
 .wc-block-checkout #cod-verifier-wrapper-active {
-    margin-bottom: 20px !important;
+    margin-bottom: 30px !important;
     clear: both;
     width: 100% !important;
+    position: relative;
+    z-index: 10;
 }
 
 /* Force display when COD is selected */
 #cod-verifier-wrapper-active[style*="display: none"] {
     display: block !important;
+}
+
+/* Ensure the actions row appears AFTER the verification box */
+.wc-block-checkout__actions_row {
+    order: 999 !important;
+    margin-top: 20px !important;
 }
 
 /* Responsive */
@@ -380,4 +401,11 @@
 #place_order {
     clear: both;
     margin-top: 10px;
+}
+
+/* Additional specificity for block checkout */
+.wp-block-woocommerce-checkout #cod-verifier-wrapper-active {
+    width: 100% !important;
+    margin: 20px 0 30px 0 !important;
+    display: block !important;
 }
