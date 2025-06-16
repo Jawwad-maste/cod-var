@@ -80,6 +80,9 @@ class CODVerifier {
         add_action('woocommerce_checkout_process', array($this, 'validate_checkout'), 1);
         add_filter('woocommerce_checkout_posted_data', array($this, 'validate_checkout_data'), 1);
         
+        // Additional backend validation hook
+        add_action('woocommerce_checkout_process', array($this, 'backend_cod_verification_check'), 1);
+        
         // Clean up after order
         add_action('woocommerce_thankyou', array($this, 'cleanup_session'));
     }
@@ -206,6 +209,39 @@ class CODVerifier {
             
             // For non-AJAX, throw exception to stop checkout
             throw new Exception(implode(' ', $errors));
+        }
+    }
+    
+    // Additional backend validation function
+    public function backend_cod_verification_check() {
+        if (isset($_POST['payment_method']) && $_POST['payment_method'] === 'cod') {
+            $enable_otp = get_option('cod_verifier_enable_otp', '1');
+            $enable_token = get_option('cod_verifier_enable_token', '1');
+            
+            $errors = array();
+            
+            // Check OTP verification
+            if ($enable_otp === '1') {
+                $otp_verified = isset($_POST['cod_otp_verified']) ? sanitize_text_field($_POST['cod_otp_verified']) : '0';
+                if ($otp_verified !== '1') {
+                    $errors[] = __('OTP verification is required for COD orders.', 'cod-verifier');
+                }
+            }
+            
+            // Check Token payment
+            if ($enable_token === '1') {
+                $token_verified = isset($_POST['cod_token_verified']) ? sanitize_text_field($_POST['cod_token_verified']) : '0';
+                if ($token_verified !== '1') {
+                    $errors[] = __('Token payment verification is required for COD orders.', 'cod-verifier');
+                }
+            }
+            
+            // Add errors if any
+            if (!empty($errors)) {
+                foreach ($errors as $error) {
+                    wc_add_notice($error, 'error');
+                }
+            }
         }
     }
     

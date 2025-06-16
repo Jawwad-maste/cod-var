@@ -382,17 +382,19 @@ jQuery(document).ready(function($) {
         $messageElement.removeClass('success error').addClass(status).html(message).show();
     }
     
-    // STRICT VALIDATION - Prevent order placement without verification
+    // ===== CRITICAL VALIDATION FUNCTION =====
     function preventOrderPlacement(e) {
         const selectedMethod = getSelectedPaymentMethod();
         
         if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {
             let errors = [];
             
+            // Check OTP verification if enabled
             if (codVerifier.enableOTP === '1' && !otpVerified) {
                 errors.push('• Please verify your phone number with OTP');
             }
             
+            // Check Token payment if enabled
             if (codVerifier.enableToken === '1' && (!tokenPaid || !$('#cod_token_confirmed').is(':checked'))) {
                 errors.push('• Please complete the ₹1 token payment and confirm');
             }
@@ -428,7 +430,9 @@ jQuery(document).ready(function($) {
         return true;
     }
     
-    // Multiple validation points to prevent order submission
+    // ===== COMPREHENSIVE VALIDATION EVENT LISTENERS =====
+    
+    // 1. Button click validation
     $(document).on('click', '#place_order, .wc-block-components-checkout-place-order-button, button[type="submit"]', function(e) {
         console.log('COD Verifier: Order placement attempted via click');
         if (!preventOrderPlacement(e)) {
@@ -436,6 +440,7 @@ jQuery(document).ready(function($) {
         }
     });
     
+    // 2. Form submission validation
     $(document).on('submit', 'form.checkout, form.wc-block-checkout__form, form[name="checkout"]', function(e) {
         console.log('COD Verifier: Form submission attempted');
         if (!preventOrderPlacement(e)) {
@@ -443,7 +448,7 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // WooCommerce specific events
+    // 3. WooCommerce specific events
     $(document).on('checkout_place_order', function(e) {
         console.log('COD Verifier: WooCommerce checkout_place_order event');
         return preventOrderPlacement({ 
@@ -461,4 +466,32 @@ jQuery(document).ready(function($) {
             stopPropagation: function() { e.stopPropagation(); } 
         });
     });
+    
+    // 4. Classic WooCommerce form validation
+    $('form.checkout').on('checkout_place_order', function(e) {
+        console.log('COD Verifier: Classic checkout form validation');
+        const selectedMethod = getSelectedPaymentMethod();
+        
+        if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {
+            if (codVerifier.enableOTP === '1' && !otpVerified) {
+                alert('Please complete OTP verification before placing the order.');
+                return false;
+            }
+            
+            if (codVerifier.enableToken === '1' && (!tokenPaid || !$('#cod_token_confirmed').is(':checked'))) {
+                alert('Please complete the ₹1 token payment before placing the order.');
+                return false;
+            }
+        }
+        
+        return true;
+    });
+    
+    // 5. Additional safety net for any missed events
+    setInterval(function() {
+        const selectedMethod = getSelectedPaymentMethod();
+        if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {
+            updateHiddenFields();
+        }
+    }, 1000);
 });
