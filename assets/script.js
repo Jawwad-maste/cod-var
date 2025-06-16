@@ -9,6 +9,7 @@ jQuery(document).ready(function($) {
         return;
     }
     
+    // Global verification state
     let otpVerified = false;
     let tokenPaid = false;
     let isBlockCheckout = $('.wc-block-checkout').length > 0;
@@ -16,12 +17,12 @@ jQuery(document).ready(function($) {
     
     console.log('COD Verifier: Checkout type:', isBlockCheckout ? 'Blocks' : 'Classic');
     
-    // Function to get selected payment method
+    // ===== UTILITY FUNCTIONS =====
+    
     function getSelectedPaymentMethod() {
         let selectedMethod = null;
         
         if (isBlockCheckout) {
-            // WooCommerce Blocks - multiple possible selectors
             const selectors = [
                 '.wc-block-components-radio-control__input:checked',
                 'input[name*="radio-control-wc-payment-method"]:checked',
@@ -36,7 +37,6 @@ jQuery(document).ready(function($) {
                 }
             }
         } else {
-            // Classic WooCommerce
             selectedMethod = $('input[name="payment_method"]:checked').val();
         }
         
@@ -44,7 +44,6 @@ jQuery(document).ready(function($) {
         return selectedMethod;
     }
     
-    // Function to create verification box from template
     function createVerificationBox() {
         if (verificationBoxCreated) {
             return $('#cod-verifier-wrapper-active');
@@ -56,21 +55,17 @@ jQuery(document).ready(function($) {
             return $();
         }
         
-        // Clone the template and add it to the page
         const $clonedBox = $template.clone();
         $clonedBox.attr('id', 'cod-verifier-wrapper-active');
         
-        // Find the best insertion point - BEFORE the actions container
+        // Find insertion point BEFORE the actions container
         let $insertionPoint = null;
         
         if (isBlockCheckout) {
-            // For WooCommerce Blocks - insert BEFORE the actions row container
             const blockSelectors = [
-                '.wc-block-checkout__actions_row', // Insert BEFORE this flex container
+                '.wc-block-checkout__actions_row',
                 '.wc-block-components-checkout-place-order-button',
-                '.wp-block-woocommerce-checkout-order-summary-block',
-                '.wc-block-checkout__payment',
-                '.wc-block-checkout'
+                '.wp-block-woocommerce-checkout-order-summary-block'
             ];
             
             for (let selector of blockSelectors) {
@@ -81,12 +76,10 @@ jQuery(document).ready(function($) {
                 }
             }
         } else {
-            // For Classic WooCommerce - insert above order review section
             const classicSelectors = [
                 '#order_review',
                 '.woocommerce-checkout-review-order',
-                '#place_order',
-                '.place-order'
+                '#place_order'
             ];
             
             for (let selector of classicSelectors) {
@@ -99,10 +92,9 @@ jQuery(document).ready(function($) {
         }
         
         if ($insertionPoint && $insertionPoint.length > 0) {
-            // Insert BEFORE the container, not inside it
             $insertionPoint.before($clonedBox);
             verificationBoxCreated = true;
-            console.log('COD Verifier: Verification box created and inserted BEFORE:', $insertionPoint.attr('class'));
+            console.log('COD Verifier: Verification box created');
             return $clonedBox;
         } else {
             console.error('COD Verifier: No suitable insertion point found');
@@ -110,7 +102,52 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // Function to handle payment method changes
+    function updateHiddenFields() {
+        $('input[name="cod_otp_verified"]').remove();
+        $('input[name="cod_token_verified"]').remove();
+        
+        const $checkoutForm = $('form.checkout, form.wc-block-checkout__form').first();
+        if ($checkoutForm.length > 0) {
+            $checkoutForm.append('<input type="hidden" name="cod_otp_verified" value="' + (otpVerified ? '1' : '0') + '">');
+            $checkoutForm.append('<input type="hidden" name="cod_token_verified" value="' + (tokenPaid ? '1' : '0') + '">');
+        }
+        
+        console.log('COD Verifier: Hidden fields updated - OTP:', otpVerified, 'Token:', tokenPaid);
+    }
+    
+    function updateVerificationStatus() {
+        if (codVerifier.enableOTP === '1') {
+            const otpBadge = $('#cod-otp-badge');
+            if (otpBadge.length) {
+                if (otpVerified) {
+                    otpBadge.text('✓ Verified').removeClass('pending').addClass('verified');
+                } else {
+                    otpBadge.text('Pending').removeClass('verified').addClass('pending');
+                }
+            }
+        }
+        
+        if (codVerifier.enableToken === '1') {
+            const tokenBadge = $('#cod-token-badge');
+            if (tokenBadge.length) {
+                if (tokenPaid) {
+                    tokenBadge.text('✓ Completed').removeClass('pending').addClass('verified');
+                } else {
+                    tokenBadge.text('Pending').removeClass('verified').addClass('pending');
+                }
+            }
+        }
+        
+        updateHiddenFields();
+    }
+    
+    function showMessage(type, message, status) {
+        const $messageElement = $('#cod_' + type + '_message');
+        $messageElement.removeClass('success error').addClass(status).html(message).show();
+    }
+    
+    // ===== PAYMENT METHOD HANDLING =====
+    
     function handlePaymentMethodChange() {
         const selectedMethod = getSelectedPaymentMethod();
         
@@ -135,8 +172,6 @@ jQuery(document).ready(function($) {
             console.log('COD Verifier: Verification box shown');
             populatePhoneFromBilling();
             updateVerificationStatus();
-        } else {
-            console.error('COD Verifier: Could not create or show verification box');
         }
     }
     
@@ -180,66 +215,23 @@ jQuery(document).ready(function($) {
         updateVerificationStatus();
     }
     
-    function updateHiddenFields() {
-        // Remove existing hidden fields
-        $('input[name="cod_otp_verified"]').remove();
-        $('input[name="cod_token_verified"]').remove();
-        
-        // Add updated hidden fields to the checkout form
-        const $checkoutForm = $('form.checkout, form.wc-block-checkout__form').first();
-        if ($checkoutForm.length > 0) {
-            $checkoutForm.append('<input type="hidden" name="cod_otp_verified" value="' + (otpVerified ? '1' : '0') + '">');
-            $checkoutForm.append('<input type="hidden" name="cod_token_verified" value="' + (tokenPaid ? '1' : '0') + '">');
-        }
-        
-        console.log('COD Verifier: Hidden fields updated - OTP:', otpVerified, 'Token:', tokenPaid);
-    }
+    // ===== EVENT LISTENERS FOR PAYMENT METHOD CHANGES =====
     
-    function updateVerificationStatus() {
-        if (codVerifier.enableOTP === '1') {
-            const otpBadge = $('#cod-otp-badge');
-            if (otpBadge.length) {
-                if (otpVerified) {
-                    otpBadge.text('✓ Verified').removeClass('pending').addClass('verified');
-                } else {
-                    otpBadge.text('Pending').removeClass('verified').addClass('pending');
-                }
-            }
-        }
-        
-        if (codVerifier.enableToken === '1') {
-            const tokenBadge = $('#cod-token-badge');
-            if (tokenBadge.length) {
-                if (tokenPaid) {
-                    tokenBadge.text('✓ Completed').removeClass('pending').addClass('verified');
-                } else {
-                    tokenBadge.text('Pending').removeClass('verified').addClass('pending');
-                }
-            }
-        }
-        
-        updateHiddenFields();
-    }
-    
-    // Set up event listeners for payment method changes
     $(document).on('change', 'input[name="payment_method"], .wc-block-components-radio-control__input, input[name*="radio-control-wc-payment-method"], input[name*="payment-method"]', handlePaymentMethodChange);
-    
-    // Classic WooCommerce events
     $(document.body).on('updated_checkout', function() {
         setTimeout(handlePaymentMethodChange, 200);
     });
-    
-    // WooCommerce Blocks events
     $(document).on('change', '.wc-block-checkout', function() {
         setTimeout(handlePaymentMethodChange, 200);
     });
     
-    // Initial check with multiple attempts
+    // Initial checks
     setTimeout(handlePaymentMethodChange, 500);
     setTimeout(handlePaymentMethodChange, 1000);
     setTimeout(handlePaymentMethodChange, 2000);
     
-    // OTP and Token event handlers
+    // ===== OTP VERIFICATION HANDLERS =====
+    
     $(document).on('click', '#cod_send_otp', function(e) {
         e.preventDefault();
         
@@ -298,13 +290,11 @@ jQuery(document).ready(function($) {
         }, 1000);
     }
     
-    // Enable verify button when OTP is entered
     $(document).on('input', '#cod_otp', function() {
         const otp = $(this).val().trim();
         $('#cod_verify_otp').prop('disabled', otp.length !== 6);
     });
     
-    // Verify OTP
     $(document).on('click', '#cod_verify_otp', function(e) {
         e.preventDefault();
         
@@ -344,7 +334,8 @@ jQuery(document).ready(function($) {
         });
     });
     
-    // Token Payment
+    // ===== TOKEN PAYMENT HANDLERS =====
+    
     $(document).on('click', '#cod_pay_token', function(e) {
         e.preventDefault();
         
@@ -377,13 +368,9 @@ jQuery(document).ready(function($) {
         });
     });
     
-    function showMessage(type, message, status) {
-        const $messageElement = $('#cod_' + type + '_message');
-        $messageElement.removeClass('success error').addClass(status).html(message).show();
-    }
-    
     // ===== CRITICAL VALIDATION FUNCTION =====
-    function preventOrderPlacement(e) {
+    
+    function preventOrderPlacement() {
         const selectedMethod = getSelectedPaymentMethod();
         
         if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {
@@ -391,27 +378,23 @@ jQuery(document).ready(function($) {
             
             // Check OTP verification if enabled
             if (codVerifier.enableOTP === '1' && !otpVerified) {
-                errors.push('• Please verify your phone number with OTP');
+                errors.push('Please verify your phone number with OTP');
             }
             
             // Check Token payment if enabled
             if (codVerifier.enableToken === '1' && (!tokenPaid || !$('#cod_token_confirmed').is(':checked'))) {
-                errors.push('• Please complete the ₹1 token payment and confirm');
+                errors.push('Please complete the ₹1 token payment and confirm');
             }
             
             if (errors.length > 0) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                e.stopPropagation();
-                
                 // Show verification box if hidden
                 showVerificationBox();
                 
-                const errorMessage = 'COD Verification Required:\n\n' + errors.join('\n');
+                const errorMessage = 'COD Verification Required:\n\n• ' + errors.join('\n• ');
                 alert(errorMessage);
                 
                 // Add WooCommerce notice
-                $('.woocommerce-notices-wrapper').html('<div class="woocommerce-error" role="alert">' + errors.join('<br>') + '</div>');
+                $('.woocommerce-notices-wrapper').html('<div class="woocommerce-error" role="alert">' + errors.join('<br>• ') + '</div>');
                 
                 // Scroll to verification section
                 const $wrapper = $('#cod-verifier-wrapper-active');
@@ -435,7 +418,10 @@ jQuery(document).ready(function($) {
     // 1. Button click validation
     $(document).on('click', '#place_order, .wc-block-components-checkout-place-order-button, button[type="submit"]', function(e) {
         console.log('COD Verifier: Order placement attempted via click');
-        if (!preventOrderPlacement(e)) {
+        if (!preventOrderPlacement()) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
             return false;
         }
     });
@@ -443,7 +429,10 @@ jQuery(document).ready(function($) {
     // 2. Form submission validation
     $(document).on('submit', 'form.checkout, form.wc-block-checkout__form, form[name="checkout"]', function(e) {
         console.log('COD Verifier: Form submission attempted');
-        if (!preventOrderPlacement(e)) {
+        if (!preventOrderPlacement()) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            e.stopPropagation();
             return false;
         }
     });
@@ -451,43 +440,21 @@ jQuery(document).ready(function($) {
     // 3. WooCommerce specific events
     $(document).on('checkout_place_order', function(e) {
         console.log('COD Verifier: WooCommerce checkout_place_order event');
-        return preventOrderPlacement({ 
-            preventDefault: function() { e.preventDefault(); }, 
-            stopImmediatePropagation: function() { e.stopImmediatePropagation(); }, 
-            stopPropagation: function() { e.stopPropagation(); } 
-        });
+        return preventOrderPlacement();
     });
     
     $(document).on('checkout_place_order_cod', function(e) {
         console.log('COD Verifier: WooCommerce checkout_place_order_cod event');
-        return preventOrderPlacement({ 
-            preventDefault: function() { e.preventDefault(); }, 
-            stopImmediatePropagation: function() { e.stopImmediatePropagation(); }, 
-            stopPropagation: function() { e.stopPropagation(); } 
-        });
+        return preventOrderPlacement();
     });
     
     // 4. Classic WooCommerce form validation
     $('form.checkout').on('checkout_place_order', function(e) {
         console.log('COD Verifier: Classic checkout form validation');
-        const selectedMethod = getSelectedPaymentMethod();
-        
-        if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {
-            if (codVerifier.enableOTP === '1' && !otpVerified) {
-                alert('Please complete OTP verification before placing the order.');
-                return false;
-            }
-            
-            if (codVerifier.enableToken === '1' && (!tokenPaid || !$('#cod_token_confirmed').is(':checked'))) {
-                alert('Please complete the ₹1 token payment before placing the order.');
-                return false;
-            }
-        }
-        
-        return true;
+        return preventOrderPlacement();
     });
     
-    // 5. Additional safety net for any missed events
+    // 5. Additional safety net - continuous validation
     setInterval(function() {
         const selectedMethod = getSelectedPaymentMethod();
         if (selectedMethod === 'cod' || selectedMethod === 'cash_on_delivery') {

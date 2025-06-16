@@ -60,8 +60,6 @@ class CODVerifier {
     
     private function include_files() {
         require_once COD_VERIFIER_PLUGIN_PATH . 'includes/settings-page.php';
-        require_once COD_VERIFIER_PLUGIN_PATH . 'includes/otp-handler.php';
-        require_once COD_VERIFIER_PLUGIN_PATH . 'includes/razorpay-handler.php';
         require_once COD_VERIFIER_PLUGIN_PATH . 'includes/ajax-handlers.php';
     }
     
@@ -72,16 +70,11 @@ class CODVerifier {
         // Enqueue scripts and styles
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         
-        // Add verification box to footer for both classic and block checkout
+        // Add verification box to footer
         add_action('wp_footer', array($this, 'add_verification_box_to_footer'));
         
-        // CRITICAL: Server-side validation with HIGHEST PRIORITY
-        add_action('woocommerce_before_checkout_process', array($this, 'validate_checkout'), 1);
+        // Server-side validation with HIGHEST PRIORITY
         add_action('woocommerce_checkout_process', array($this, 'validate_checkout'), 1);
-        add_filter('woocommerce_checkout_posted_data', array($this, 'validate_checkout_data'), 1);
-        
-        // Additional backend validation hook
-        add_action('woocommerce_checkout_process', array($this, 'backend_cod_verification_check'), 1);
         
         // Clean up after order
         add_action('woocommerce_thankyou', array($this, 'cleanup_session'));
@@ -97,7 +90,7 @@ class CODVerifier {
         if (is_checkout()) {
             wp_enqueue_script('jquery');
             
-            // Use the working script.js instead of cod-verifier.js
+            // Main verification script
             wp_enqueue_script(
                 'cod-verifier-script',
                 COD_VERIFIER_PLUGIN_URL . 'assets/script.js',
@@ -106,6 +99,7 @@ class CODVerifier {
                 true
             );
             
+            // Main styles
             wp_enqueue_style(
                 'cod-verifier-style',
                 COD_VERIFIER_PLUGIN_URL . 'assets/cod-verifier.css',
@@ -133,19 +127,11 @@ class CODVerifier {
         $enable_token = get_option('cod_verifier_enable_token', '1');
         
         if ($enable_otp === '1' || $enable_token === '1') {
-            // Output hidden template wrapper that script.js expects
+            // Output hidden template wrapper
             echo '<div id="cod-verification-template" style="display: none;">';
-            
-            // Include the main verification box template
             include COD_VERIFIER_PLUGIN_PATH . 'templates/otp-box.php';
-            
             echo '</div>';
         }
-    }
-    
-    public function validate_checkout_data($data) {
-        $this->validate_checkout();
-        return $data;
     }
     
     public function validate_checkout() {
@@ -212,39 +198,6 @@ class CODVerifier {
         }
     }
     
-    // Additional backend validation function
-    public function backend_cod_verification_check() {
-        if (isset($_POST['payment_method']) && $_POST['payment_method'] === 'cod') {
-            $enable_otp = get_option('cod_verifier_enable_otp', '1');
-            $enable_token = get_option('cod_verifier_enable_token', '1');
-            
-            $errors = array();
-            
-            // Check OTP verification
-            if ($enable_otp === '1') {
-                $otp_verified = isset($_POST['cod_otp_verified']) ? sanitize_text_field($_POST['cod_otp_verified']) : '0';
-                if ($otp_verified !== '1') {
-                    $errors[] = __('OTP verification is required for COD orders.', 'cod-verifier');
-                }
-            }
-            
-            // Check Token payment
-            if ($enable_token === '1') {
-                $token_verified = isset($_POST['cod_token_verified']) ? sanitize_text_field($_POST['cod_token_verified']) : '0';
-                if ($token_verified !== '1') {
-                    $errors[] = __('Token payment verification is required for COD orders.', 'cod-verifier');
-                }
-            }
-            
-            // Add errors if any
-            if (!empty($errors)) {
-                foreach ($errors as $error) {
-                    wc_add_notice($error, 'error');
-                }
-            }
-        }
-    }
-    
     public function cleanup_session($order_id) {
         // Clean up session variables
         if (isset($_SESSION['cod_otp'])) unset($_SESSION['cod_otp']);
@@ -277,5 +230,4 @@ class CODVerifier {
 
 // Initialize the plugin
 new CODVerifier();
-
 ?>
